@@ -1,6 +1,6 @@
 {
   "name": "@call2me/sdk",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Call2Me Node.js SDK — Build AI voice agents",
   "main": "src/index.js",
   "types": "src/index.d.ts",
