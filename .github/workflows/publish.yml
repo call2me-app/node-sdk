@@ -1,10 +1,15 @@
 name: Publish to npm
 
 # Tag v* ⇒ npm publish via Trusted Publishing (OIDC).
-# Trusted publisher: configured at npmjs.com → call2me-sdk → Settings.
-# OIDC publish needs npm >= 11.5.1. We pin npm explicitly because
-# `npm install -g npm@latest` self-upgrade has been buggy
-# (promise-retry MODULE_NOT_FOUND on Node 22).
+#
+# Notes from the debugging trail:
+#  - Default setup-node@v4 ships npm 10, which can't negotiate
+#    OIDC publish (npm returns a misleading "404 Not Found").
+#  - `npm install -g npm@latest` self-upgrade crashes with
+#    MODULE_NOT_FOUND promise-retry on fresh Node 22.
+#  - npm 11 + Node 22 crashes on publish with
+#    "Class extends value undefined".
+# Working combo: Node 20 + npm 11.5.1+ (OIDC + stable runtime).
 
 on:
   push:
@@ -25,13 +30,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "20"
           registry-url: "https://registry.npmjs.org"
-      - name: Install npm 11 (for OIDC publish)
-        # Use corepack-style install — replaces, doesn't self-upgrade.
+      - name: Install npm 11 (OIDC-capable)
         run: |
-          rm -rf "$(dirname "$(which npm)")/../lib/node_modules/npm"
-          curl -fsSL https://registry.npmjs.org/npm/-/npm-11.7.0.tgz | tar -xz -C "$(dirname "$(which npm)")/../lib/node_modules/" --transform 's,^package,npm,'
+          sudo rm -rf "$(dirname "$(which npm)")/../lib/node_modules/npm"
+          curl -fsSL https://registry.npmjs.org/npm/-/npm-11.7.0.tgz \
+            | sudo tar -xz -C "$(dirname "$(which npm)")/../lib/node_modules/" --transform 's,^package,npm,'
           npm --version
       - name: Verify tag matches package.json
         run: |
