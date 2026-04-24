@@ -1,17 +1,10 @@
 name: Publish to npm
 
-# Tag v* ⇒ npm publish via npm Trusted Publishing (OIDC).
+# Tag v* ⇒ npm publish via Trusted Publishing (OIDC).
+# Trusted publisher is configured at npmjs.com → call2me-sdk → Settings.
 #
-# Auth model: package "call2me-sdk" on npmjs.com has GitHub Actions
-# trusted publisher configured for THIS repo + workflow + env. No
-# NPM_TOKEN is needed; npm exchanges the GitHub-issued OIDC ID token
-# for a short-lived publish token at request time.
-#
-# Configure at:
-#   npmjs.com → call2me-sdk → Settings → Trusted Publisher
-#     Repository:  call2me-app/node-sdk
-#     Workflow:    publish.yml
-#     Environment: npm
+# Requires npm >= 11.5.1 for the OIDC publish flow. setup-node@v4 ships
+# Node 20 + npm 10, so we explicitly upgrade npm in a step.
 
 on:
   push:
@@ -32,8 +25,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           registry-url: "https://registry.npmjs.org"
+      - name: Upgrade npm to OIDC-capable version
+        run: npm install -g npm@latest
+      - name: Print versions
+        run: |
+          node --version
+          npm --version
       - name: Verify tag matches package.json
         run: |
           PV=$(node -p "require('./package.json').version")
