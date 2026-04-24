@@ -9,7 +9,7 @@ Build, deploy, and manage AI voice agents that handle real phone calls, extract 
 
 ## Features
 
-- **14 API Resources** — Full coverage of the Call2Me REST API
+- **15 API Resources** — Full coverage of the Call2Me REST API
 - **Voice Agents** — Create agents with 30+ AI models and custom voices
 - **Phone & Web Calls** — Inbound/outbound via SIP, browser, or chat widget
 - **Campaigns** — Bulk outbound calling with CSV upload
@@ -197,6 +197,27 @@ await client.chats.get('session_id')
 await client.chats.sendMessage('session_id', 'Hello!', model)
 ```
 
+### Events
+
+Forward application errors and business events to the Call2Me
+observability pipeline. The POST endpoint is public; sending the API
+key lifts your per-minute ceiling from 10 (anon) to 100.
+
+```javascript
+await client.events.report('payment_failed', 'Paddle rejected the webhook', {
+  source: 'api',
+  severity: 'error',
+  meta: { payment_id: 'pay_abc', provider: 'paddle' },
+});
+
+// Admin-only — query archived (error+) events:
+await client.events.query({ severity: 'error', hours: 24 });
+```
+
+Common `type` values: `js_error`, `unhandled_rejection`, `http_5xx`,
+`auth_login`, `auth_signup`, `payment_success`, `payment_failed`,
+`call_started`, `call_ended`, `call_failed`, `agent_crash`.
+
 ## Error Handling
 
 ```javascript
@@ -215,6 +236,17 @@ try {
 - **Guides**: [call2me.app/guides](https://call2me.app/guides)
 - **GitHub**: [github.com/call2me-app/node-sdk](https://github.com/call2me-app/node-sdk)
 - **Support**: [support@call2me.app](mailto:support@call2me.app)
+
+## Changelog
+
+### 1.3.0 (2026-04-24)
+- Add `events` resource — `client.events.report()` and `.query()` for
+  forwarding errors and business events to the observability pipeline.
+- First real `src/index.d.ts` for TypeScript autocomplete.
+- Published with npm provenance via OIDC Trusted Publishing (no NPM_TOKEN).
+
+### 1.2.0
+- All 14 resources, campaigns, schedules, widgets.
 
 ## License
 
