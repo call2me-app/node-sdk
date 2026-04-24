@@ -2,7 +2,7 @@
  * Call2Me Node.js SDK — Full API coverage
  *
  * @example
- * const { Call2Me } = require('@call2me/sdk');
+ * const { Call2Me } = require('call2me-sdk');
  * const client = new Call2Me('sk_call2me_...');
  * const agents = await client.agents.list();
  */
@@ -25,6 +25,7 @@ class Call2Me {
     this.voices = new VoicesResource(this);
     this.chats = new ChatsResource(this);
     this.payments = new PaymentsResource(this);
+    this.events = new EventsResource(this);
   }
 
   async _request(method, path, body = null, params = null) {
@@ -191,6 +192,26 @@ class PaymentsResource {
   savedCards() { return this.c._request('GET', '/v1/payments/saved-cards'); }
   autoCharge() { return this.c._request('GET', '/v1/payments/auto-charge'); }
   updateAutoCharge(data) { return this.c._request('PUT', '/v1/payments/auto-charge', data); }
+}
+
+// ── Events ──
+// POST is public (no auth required); authenticated requests get a higher
+// rate ceiling (100/min vs 10/min anon). GET is admin-only.
+class EventsResource {
+  constructor(c) { this.c = c; }
+  report(type, message, { source = 'api', severity, meta, tenant, sessionId, fingerprint } = {}) {
+    const body = { type, source, message };
+    if (severity) body.severity = severity;
+    if (tenant) body.tenant = tenant;
+    if (sessionId) body.session_id = sessionId;
+    if (fingerprint) body.fingerprint = fingerprint;
+    if (meta) body.meta = meta;
+    return this.c._request('POST', '/v1/events', body);
+  }
+  query({ severity, type, fingerprint, hours = 24, limit = 50 } = {}) {
+    return this.c._request('GET', '/v1/events', null,
+      { severity, type, fingerprint, hours, limit });
+  }
 }
 
 module.exports = { Call2Me };
