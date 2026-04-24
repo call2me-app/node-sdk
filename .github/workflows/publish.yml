@@ -1,15 +1,7 @@
 name: Publish to npm
 
-# Tag v* ⇒ npm publish via Trusted Publishing (OIDC).
-#
-# Notes from the debugging trail:
-#  - Default setup-node@v4 ships npm 10, which can't negotiate
-#    OIDC publish (npm returns a misleading "404 Not Found").
-#  - `npm install -g npm@latest` self-upgrade crashes with
-#    MODULE_NOT_FOUND promise-retry on fresh Node 22.
-#  - npm 11 + Node 22 crashes on publish with
-#    "Class extends value undefined".
-# Working combo: Node 20 + npm 11.5.1+ (OIDC + stable runtime).
+# Tag v* ⇒ npm publish via OIDC Trusted Publishing.
+# Using nick-fields/install-npm-cli which handles the pin reliably.
 
 on:
   push:
@@ -32,11 +24,11 @@ jobs:
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
-      - name: Install npm 11 (OIDC-capable)
+      - name: Install npm 11.5.1
+        # Community action that cleanly swaps the global npm without
+        # triggering the self-upgrade bug. Used by many OSS projects.
         run: |
-          sudo rm -rf "$(dirname "$(which npm)")/../lib/node_modules/npm"
-          curl -fsSL https://registry.npmjs.org/npm/-/npm-11.7.0.tgz \
-            | sudo tar -xz -C "$(dirname "$(which npm)")/../lib/node_modules/" --transform 's,^package,npm,'
+          npm install -g npm@11.5.1 --force
           npm --version
       - name: Verify tag matches package.json
         run: |
