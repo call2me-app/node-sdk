@@ -1,14 +1,17 @@
 name: Publish to npm
 
-# Tag v* ⇒ npm publish.
+# Tag v* ⇒ npm publish via npm Trusted Publishing (OIDC).
 #
-# Auth: classic NPM_TOKEN (granular access token with publish rights on
-# call2me-sdk). Stored as a repo secret named NPM_TOKEN — see
-# https://github.com/call2me-app/node-sdk/settings/secrets/actions
+# Auth model: package "call2me-sdk" on npmjs.com has GitHub Actions
+# trusted publisher configured for THIS repo + workflow + env. No
+# NPM_TOKEN is needed; npm exchanges the GitHub-issued OIDC ID token
+# for a short-lived publish token at request time.
 #
-# We left provenance OFF on purpose: it requires npm Trusted Publishing,
-# which we couldn't configure for this package. If you set it up later,
-# add `--provenance` and `id-token: write` to the permissions block.
+# Configure at:
+#   npmjs.com → call2me-sdk → Settings → Trusted Publisher
+#     Repository:  call2me-app/node-sdk
+#     Workflow:    publish.yml
+#     Environment: npm
 
 on:
   push:
@@ -16,6 +19,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  id-token: write
   contents: read
 
 jobs:
@@ -35,7 +39,5 @@ jobs:
           PV=$(node -p "require('./package.json').version")
           TV="${GITHUB_REF_NAME#v}"
           [ "$PV" = "$TV" ] || { echo "package.json $PV != tag $TV"; exit 1; }
-      - name: Publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
+      - name: Publish (OIDC trusted publisher + provenance)
+        run: npm publish --provenance --access public
