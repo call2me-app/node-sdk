@@ -1,10 +1,10 @@
 name: Publish to npm
 
 # Tag v* ⇒ npm publish via Trusted Publishing (OIDC).
-# Trusted publisher is configured at npmjs.com → call2me-sdk → Settings.
-#
-# Requires npm >= 11.5.1 for the OIDC publish flow. setup-node@v4 ships
-# Node 20 + npm 10, so we explicitly upgrade npm in a step.
+# Trusted publisher: configured at npmjs.com → call2me-sdk → Settings.
+# OIDC publish needs npm >= 11.5.1. We pin npm explicitly because
+# `npm install -g npm@latest` self-upgrade has been buggy
+# (promise-retry MODULE_NOT_FOUND on Node 22).
 
 on:
   push:
@@ -27,11 +27,11 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
-      - name: Upgrade npm to OIDC-capable version
-        run: npm install -g npm@latest
-      - name: Print versions
+      - name: Install npm 11 (for OIDC publish)
+        # Use corepack-style install — replaces, doesn't self-upgrade.
         run: |
-          node --version
+          rm -rf "$(dirname "$(which npm)")/../lib/node_modules/npm"
+          curl -fsSL https://registry.npmjs.org/npm/-/npm-11.7.0.tgz | tar -xz -C "$(dirname "$(which npm)")/../lib/node_modules/" --transform 's,^package,npm,'
           npm --version
       - name: Verify tag matches package.json
         run: |
