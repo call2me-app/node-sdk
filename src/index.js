@@ -26,6 +26,7 @@ class Call2Me {
     this.chats = new ChatsResource(this);
     this.payments = new PaymentsResource(this);
     this.events = new EventsResource(this);
+    this.voiceSessions = new VoiceSessionsResource(this);
   }
 
   async _request(method, path, body = null, params = null) {
@@ -211,6 +212,14 @@ class EventsResource {
   query({ severity, type, fingerprint, hours = 24, limit = 50 } = {}) {
     return this.c._request('GET', '/v1/events', null,
       { severity, type, fingerprint, hours, limit });
+  }
+}
+
+class VoiceSessionsResource {
+  constructor(c) { this.c = c; }
+  // Open a headless AI voice session. Returns {token, url, room_name, session_limit_sec}.
+  create(agentId, context = null) {
+    return this.c._request('POST', '/v1/voice/sessions', { agent_id: agentId, context });
   }
 }
 

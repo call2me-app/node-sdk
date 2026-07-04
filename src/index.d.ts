@@ -65,5 +65,8 @@ declare module "call2me-sdk" {
       report(type: string, message: string, options?: EventOptions): Promise<any>;
       query(q?: EventQuery): Promise<any>;
     };
+    voiceSessions: {
+      create(agentId: string, context?: Record<string, unknown> | null): Promise<any>;
+    };
   }
 }

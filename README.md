@@ -30,7 +30,7 @@ Requires Node.js 18+
 
 ## Getting Your API Key
 
-1. Sign up at [dashboard.call2me.app](https://dashboard.call2me.app/signup) — you get **$10 free credits**
+1. Sign up at [dash.call2me.app](https://dash.call2me.app/signup) — you get **$10 free credits**
 2. Go to **API Keys** in the dashboard
 3. Click **Create API Key** and copy your `sk_call2me_...` key
 
@@ -190,6 +190,18 @@ await client.voices.list()
 await client.voices.providers()
 ```
 
+### Headless voice sessions
+```javascript
+// Server-side: get a token
+const s = await client.voiceSessions.create('agent_abc123')
+
+// Browser: connect with the helper (livekit-client is a peer dependency)
+import { startVoiceSession } from 'call2me-sdk/voice'
+import { Room } from 'livekit-client'
+const session = await startVoiceSession({ url: s.url, token: s.token, Room })
+// mic is on, the agent is talking. session.stop() to end.
+```
+
 ### Chats
 ```javascript
 await client.chats.list(limit)
@@ -231,13 +243,17 @@ try {
 ## Links
 
 - **Website**: [call2me.app](https://call2me.app)
-- **Dashboard**: [dashboard.call2me.app](https://dashboard.call2me.app)
+- **Dashboard**: [dash.call2me.app](https://dash.call2me.app)
 - **API Docs**: [call2me.app/docs](https://call2me.app/docs)
 - **Guides**: [call2me.app/guides](https://call2me.app/guides)
 - **GitHub**: [github.com/call2me-app/node-sdk](https://github.com/call2me-app/node-sdk)
 - **Support**: [support@call2me.app](mailto:support@call2me.app)
 
 ## Changelog
+
+### 1.4.0 (2026-07-02)
+- Added `voiceSessions.create(agentId, context)` — open a headless AI voice session with an agent.
+- Added `call2me-sdk/voice` browser helper `startVoiceSession({ url, token, Room })` (livekit-client is a peer dependency).
 
 ### 1.3.0 (2026-04-24)
 - Add `events` resource — `client.events.report()` and `.query()` for
