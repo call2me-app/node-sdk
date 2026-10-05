@@ -25,6 +25,12 @@ class Call2Me {
     this.voices = new VoicesResource(this);
     this.chats = new ChatsResource(this);
     this.payments = new PaymentsResource(this);
+    // 5 Eki 2026'da eklendi: 278 uçtan yalnız 83'ü kapsanıyordu ve
+    // tercümanın 11 ucunun HİÇBİRİ yoktu.
+    this.interpreters = new InterpretersResource(this);
+    this.numbers = new NumbersResource(this);
+    this.sms = new SmsResource(this);
+    this.extension = new ExtensionResource(this);
     this.events = new EventsResource(this);
     this.voiceSessions = new VoiceSessionsResource(this);
     this.endUsers = new EndUsersResource(this);
@@ -63,6 +69,17 @@ class AgentsResource {
 class CallsResource {
   constructor(c) { this.c = c; }
   list(limit = 50, offset = 0, agentId = null) { return this.c._request('GET', '/v1/calls', null, { limit, offset, agent_id: agentId }); }
+  /**
+   * Place a REAL outbound call — `to_number` is dialled and charged.
+   *
+   * `topic` is why the call is being placed; it reaches the agent as
+   * `call_purpose` and is woven into both the opening line and the system
+   * prompt, so the agent states its reason instead of a generic greeting.
+   *
+   * Missing from this SDK until 5 Oct 2026 despite the README advertising
+   * outbound calling.
+   */
+  create(data) { return this.c._request('POST', '/v1/calls', temizle(data)); }
   get(id) { return this.c._request('GET', `/v1/calls/${id}`); }
   end(id) { return this.c._request('POST', `/v1/calls/${id}/end`); }
   recording(id) { return this.c._request('GET', `/v1/calls/${id}/recording`); }
@@ -213,6 +230,94 @@ class ChatsResource {
 }
 
 // ── Payments ──
+/**
+ * Drop keys whose value is undefined/null.
+ *
+ * Optional fields default to undefined, but sending an explicit null is
+ * not the same as omitting the field — some endpoints reject it with 422.
+ */
+function temizle(o) {
+  return Object.fromEntries(
+    Object.entries(o).filter(([, v]) => v !== undefined && v !== null)
+  );
+}
+
+/**
+ * Live interpreter — two people each speak their own language.
+ *
+ * Covers both delivery paths: a phone call that dials both sides, and a
+ * browser session with a shareable link. None of this existed in the SDK
+ * before 5 Oct 2026 even though the interpreter is a headline product.
+ */
+class InterpretersResource {
+  constructor(c) { this.c = c; }
+  list(limit = 20, offset = 0) { return this.c._request('GET', '/v1/interpreters', null, { limit, offset }); }
+  get(id) { return this.c._request('GET', `/v1/interpreters/${id}`); }
+  /** Name and both languages are required. Without `phone_number` only the browser path works. */
+  create(data) { return this.c._request('POST', '/v1/interpreters', temizle(data)); }
+  update(id, data) { return this.c._request('PATCH', `/v1/interpreters/${id}`, temizle(data)); }
+  delete(id) { return this.c._request('DELETE', `/v1/interpreters/${id}`); }
+  /** Sessions run through any interpreter on the account. */
+  calls(limit = 20, offset = 0) { return this.c._request('GET', '/v1/interpreters/calls', null, { limit, offset }); }
+  /** Places a REAL interpreted phone call — both sides dialled and charged. */
+  call(id, targetNumber, initiatorNumber) {
+    return this.c._request('POST', `/v1/interpreters/${id}/call`,
+      temizle({ target_number: targetNumber, initiator_number: initiatorNumber }));
+  }
+  /** Open or close the browser session link. Places no phone call. */
+  enableWeb(id, enabled = true, requiresPasscode) {
+    return this.c._request('POST', `/v1/interpreters/${id}/web`,
+      temizle({ enabled, requires_passcode: requiresPasscode }));
+  }
+  endWeb(id) { return this.c._request('POST', `/v1/interpreters/${id}/web/end`); }
+  /** Who is connected to the browser session right now. */
+  webStatus(id) { return this.c._request('GET', `/v1/interpreters/${id}/web/live`); }
+  /** Single-use join passcode for the browser session. */
+  createPasscode(id) { return this.c._request('POST', `/v1/interpreters/${id}/web/passcodes`); }
+}
+
+/** Searching and buying numbers (distinct from `phoneNumbers`, which manages owned ones). */
+class NumbersResource {
+  constructor(c) { this.c = c; }
+  allowedCountries() { return this.c._request('GET', '/v1/numbers/allowed-countries'); }
+  /** Lists purchasable numbers. Does NOT buy anything. */
+  search(params) { return this.c._request('GET', '/v1/numbers/search', null, temizle(params)); }
+  /** BUYS the number: balance is charged and monthly rent starts. */
+  purchase(data) { return this.c._request('POST', '/v1/numbers/purchase', temizle(data)); }
+  /** Checkout link — does not charge by itself. */
+  checkout(data) { return this.c._request('POST', '/v1/numbers/checkout', temizle(data)); }
+  /** PERMANENTLY releases the number; it leaves the account. */
+  release(number) { return this.c._request('DELETE', `/v1/numbers/${number}`); }
+}
+
+class SmsResource {
+  constructor(c) { this.c = c; }
+  send(to, text, from) { return this.c._request('POST', '/v1/sms', temizle({ to, text, from })); }
+  list(params = {}) { return this.c._request('GET', '/v1/sms', null, temizle(params)); }
+}
+
+/** Chrome extension — live translation of a browser tab. Device-scoped. */
+class ExtensionResource {
+  constructor(c) { this.c = c; }
+  config(deviceId) { return this.c._request('GET', '/v1/ext/config', null, { device_id: deviceId }); }
+  /** Minutes used and remaining for the account. */
+  usage() { return this.c._request('GET', '/v1/ext/usage'); }
+  linkRequest(deviceId, email) { return this.c._request('POST', '/v1/ext/link/request', { device_id: deviceId, email }); }
+  linkConfirm(token) { return this.c._request('POST', '/v1/ext/link/confirm', { token }); }
+  linkStatus(deviceId) { return this.c._request('POST', '/v1/ext/link/status', { device_id: deviceId }); }
+  linkAttach(deviceId) { return this.c._request('POST', '/v1/ext/link/attach', { device_id: deviceId }); }
+  linkDetach(deviceId) { return this.c._request('POST', '/v1/ext/link/detach', { device_id: deviceId }); }
+  sessionStart(data) { return this.c._request('POST', '/v1/ext/session/start', temizle(data)); }
+  sessionHeartbeat(deviceId, sessionId, elapsedSeconds) {
+    return this.c._request('POST', '/v1/ext/session/heartbeat',
+      { device_id: deviceId, session_id: sessionId, elapsed_seconds: elapsedSeconds });
+  }
+  sessionEnd(deviceId, sessionId, reason) {
+    return this.c._request('POST', '/v1/ext/session/end',
+      temizle({ device_id: deviceId, session_id: sessionId, reason }));
+  }
+}
+
 class PaymentsResource {
   constructor(c) { this.c = c; }
   checkout(amount, currency = 'USD') { return this.c._request('POST', '/v1/payments/checkout', { amount, currency }); }
