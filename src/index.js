@@ -27,6 +27,8 @@ class Call2Me {
     this.payments = new PaymentsResource(this);
     this.events = new EventsResource(this);
     this.voiceSessions = new VoiceSessionsResource(this);
+    this.endUsers = new EndUsersResource(this);
+    this.webhooks = new WebhooksResource(this);
   }
 
   async _request(method, path, body = null, params = null) {
@@ -73,7 +75,7 @@ class KnowledgeBaseResource {
   get(id) { return this.c._request('GET', `/v1/knowledge-base/${id}`); }
   create(data) { return this.c._request('POST', '/v1/knowledge-base', data); }
   delete(id) { return this.c._request('DELETE', `/v1/knowledge-base/${id}`); }
-  addSource(id, data) { return this.c._request('POST', `/v1/knowledge-base/${id}/sources`, data); }
+  addSource(id, data) { return this.c._request('POST', `/v1/knowledge-base/${id}/add-sources`, data); }
   query(id, query, topK = 5) { return this.c._request('POST', `/v1/knowledge-base/${id}/query`, { query, top_k: topK }); }
 }
 
@@ -122,7 +124,7 @@ class PhoneNumbersResource {
   update(number, data) { return this.c._request('PATCH', `/v1/phone-numbers/${number}`, data); }
   delete(number) { return this.c._request('DELETE', `/v1/phone-numbers/${number}`); }
   bindAgent(number, agentId) { return this.c._request('POST', `/v1/phone-numbers/${number}/bind`, { agent_id: agentId }); }
-  unbindAgent(number) { return this.c._request('POST', `/v1/phone-numbers/${number}/unbind`); }
+  unbindAgent(number) { return this.c._request('DELETE', `/v1/phone-numbers/${number}/unbind`); }
 }
 
 // ── SIP Trunks ──
@@ -141,7 +143,7 @@ class ApiKeysResource {
   constructor(c) { this.c = c; }
   list() { return this.c._request('GET', '/v1/api-keys'); }
   create(data) { return this.c._request('POST', '/v1/api-keys', data); }
-  revoke(id) { return this.c._request('PATCH', `/v1/api-keys/${id}/revoke`); }
+  revoke(id) { return this.c._request('DELETE', `/v1/api-keys/${id}`); }
   delete(id) { return this.c._request('DELETE', `/v1/api-keys/${id}`); }
   usage(id) { return this.c._request('GET', `/v1/api-keys/${id}/usage`); }
 }
@@ -174,15 +176,40 @@ class WidgetsResource {
 class VoicesResource {
   constructor(c) { this.c = c; }
   list() { return this.c._request('GET', '/v1/voices'); }
-  providers() { return this.c._request('GET', '/v1/voices/providers'); }
+  /**
+   * Distinct voice providers, derived from the voice list.
+   *
+   * There is no `/v1/voices/providers` endpoint — this method used to call
+   * one and always returned 404 (measured against the live spec, 5 Oct
+   * 2026). The provider is a field on each voice, so the list is derived
+   * here instead of breaking callers by removing the method.
+   *
+   * Live values: `elevenlabs` (16 voices), `openai-realtime` (10).
+   */
+  async providers() {
+    const ham = await this.list();
+    const sesler = Array.isArray(ham) ? ham : (ham?.voices ?? []);
+    return [...new Set(sesler.map((v) => v?.provider).filter(Boolean))].sort();
+  }
 }
 
 // ── Chats ──
 class ChatsResource {
   constructor(c) { this.c = c; }
-  list(limit = 50) { return this.c._request('GET', '/v1/chats', null, { limit }); }
+  // With an eut_ token, external_user_id is taken from the token automatically.
+  create(agentId, { title = null, external_user_id = null, metadata = null } = {}) {
+    const body = { agent_id: agentId };
+    if (title) body.title = title;
+    if (external_user_id) body.external_user_id = external_user_id;
+    if (metadata) body.metadata = metadata;
+    return this.c._request('POST', '/v1/chats', body);
+  }
+  list(limit = 50, external_user_id = null) { return this.c._request('GET', '/v1/chats', null, { limit, external_user_id }); }
   get(sessionId) { return this.c._request('GET', `/v1/chats/${sessionId}`); }
-  sendMessage(sessionId, content, model = null) { return this.c._request('POST', `/v1/chats/${sessionId}/messages`, { content, model }); }
+  // stream=true → server returns text/event-stream (SSE); consume the response body line by line.
+  sendMessage(sessionId, content, model = null, stream = false) {
+    return this.c._request('POST', `/v1/chats/${sessionId}/messages`, { content, model, stream });
+  }
 }
 
 // ── Payments ──
@@ -190,7 +217,7 @@ class PaymentsResource {
   constructor(c) { this.c = c; }
   checkout(amount, currency = 'USD') { return this.c._request('POST', '/v1/payments/checkout', { amount, currency }); }
   history(limit = 50) { return this.c._request('GET', '/v1/payments/history', null, { limit }); }
-  savedCards() { return this.c._request('GET', '/v1/payments/saved-cards'); }
+  savedCards() { return this.c._request('GET', '/v1/payments/methods'); }
   autoCharge() { return this.c._request('GET', '/v1/payments/auto-charge'); }
   updateAutoCharge(data) { return this.c._request('PUT', '/v1/payments/auto-charge', data); }
 }
@@ -218,8 +245,37 @@ class EventsResource {
 class VoiceSessionsResource {
   constructor(c) { this.c = c; }
   // Open a headless AI voice session. Returns {token, url, room_name, session_limit_sec}.
-  create(agentId, context = null) {
-    return this.c._request('POST', '/v1/voice/sessions', { agent_id: agentId, context });
+  create(agentId, context = null, { external_user_id = null, metadata = null, max_duration_sec = null } = {}) {
+    const body = { agent_id: agentId, context };
+    if (external_user_id) body.external_user_id = external_user_id;
+    if (metadata) body.metadata = metadata;
+    if (max_duration_sec) body.max_duration_sec = max_duration_sec;
+    return this.c._request('POST', '/v1/voice/sessions', body);
+  }
+  // Fetch a voice session's detail + transcript. eut_ token → only its own end user.
+  get(roomName) { return this.c._request('GET', `/v1/voice/sessions/${encodeURIComponent(roomName)}`); }
+}
+
+class WebhooksResource {
+  constructor(c) { this.c = c; }
+  // Set (or replace) your tenant webhook URL + secret (auto-generated if omitted).
+  set(webhookUrl, webhookSecret = null) {
+    const body = { webhook_url: webhookUrl };
+    if (webhookSecret) body.webhook_secret = webhookSecret;
+    return this.c._request('PUT', '/v1/webhooks', body);
+  }
+  get() { return this.c._request('GET', '/v1/webhooks'); }
+}
+
+class EndUsersResource {
+  constructor(c) { this.c = c; }
+  // Mint an ephemeral end-user token (eut_) to hand to a mobile client.
+  // Called with your sk_ key; usage is billed to your (tenant) wallet.
+  createToken(externalId, { scopes = null, expires_in = 3600, agent_ids = null } = {}) {
+    const body = { expires_in };
+    if (scopes) body.scopes = scopes;
+    if (agent_ids) body.agent_ids = agent_ids;
+    return this.c._request('POST', `/v1/end-users/${encodeURIComponent(externalId)}/tokens`, body);
   }
 }
 

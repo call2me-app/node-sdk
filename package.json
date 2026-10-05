@@ -1,19 +1,37 @@
 {
   "name": "call2me-sdk",
-  "version": "1.4.0",
-  "description": "Call2Me Node.js SDK — Build AI voice agents",
+  "version": "1.4.1",
+  "description": "Call2Me Node.js SDK \u2014 Build AI voice agents",
   "main": "src/index.js",
   "types": "src/index.d.ts",
   "exports": {
-    ".": { "require": "./src/index.js", "types": "./src/index.d.ts" },
+    ".": {
+      "require": "./src/index.js",
+      "types": "./src/index.d.ts"
+    },
     "./voice": "./src/voice.js"
   },
-  "files": ["src/"],
+  "files": [
+    "src/"
+  ],
   "license": "MIT",
   "homepage": "https://call2me.app",
   "repository": "https://github.com/call2me-app/node-sdk",
-  "keywords": ["voice-ai", "call2me", "ai-agents", "voice-agents"],
-  "engines": { "node": ">=18" },
-  "peerDependencies": { "livekit-client": ">=2" },
-  "peerDependenciesMeta": { "livekit-client": { "optional": true } }
+  "keywords": [
+    "voice-ai",
+    "call2me",
+    "ai-agents",
+    "voice-agents"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "livekit-client": ">=2"
+  },
+  "peerDependenciesMeta": {
+    "livekit-client": {
+      "optional": true
+    }
+  }
 }
