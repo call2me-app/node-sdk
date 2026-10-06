@@ -66,7 +66,15 @@ declare module "call2me-sdk" {
       query(q?: EventQuery): Promise<any>;
     };
     voiceSessions: {
-      create(agentId: string, context?: Record<string, unknown> | null): Promise<any>;
+      create(agentId: string, context?: Record<string, unknown> | null, opts?: { external_user_id?: string; metadata?: Record<string, unknown>; max_duration_sec?: number }): Promise<any>;
+      get(roomName: string): Promise<any>;
+    };
+    endUsers: {
+      createToken(externalId: string, opts?: { scopes?: string[]; expires_in?: number; agent_ids?: string[] }): Promise<any>;
+    };
+    webhooks: {
+      set(webhookUrl: string, webhookSecret?: string): Promise<any>;
+      get(): Promise<any>;
     };
   }
 }

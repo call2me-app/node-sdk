@@ -43,7 +43,7 @@ const client = new Call2Me('sk_call2me_...');
 // Create an agent
 const agent = await client.agents.create({
   agent_name: 'Sales Agent',
-  voice_id: 'elevenlabs-selin',
+  voice_id: 'elevenlabs-CFzl8WvPQ92EKMBs2hpS',
   language: 'tr-TR',
   response_engine: {
     type: 'call2me-llm',
