@@ -9,7 +9,7 @@ Build, deploy, and manage AI voice agents that handle real phone calls, extract 
 
 ## Features
 
-- **15 API Resources** — Full coverage of the Call2Me REST API
+- **22 API Resources** — Full coverage of the Call2Me REST API
 - **Voice Agents** — Create agents with 30+ AI models and custom voices
 - **Phone & Web Calls** — Inbound/outbound via SIP, browser, or chat widget
 - **Campaigns** — Bulk outbound calling with CSV upload
@@ -30,17 +30,17 @@ Requires Node.js 18+
 
 ## Getting Your API Key
 
-1. Sign up at [dash.call2me.app](https://dash.call2me.app/signup) — you get **$10 free credits**
+1. Sign up at [dash.call2me.app](https://dash.call2me.app/signup) — you get **$5 free credit**
 2. Go to **API Keys** in the dashboard
 3. Click **Create API Key** and copy your `sk_call2me_...` key
 
 ## Quick Start
 
 ```javascript
-const { Call2Me } = require('call2me-sdk');
+import { Call2Me } from 'call2me-sdk';          // or: const { Call2Me } = require('call2me-sdk');
 const client = new Call2Me('sk_call2me_...');
 
-// Create an agent
+// Create an agent (top-level await: use an .mjs file, or wrap in an async function)
 const agent = await client.agents.create({
   agent_name: 'Sales Agent',
   voice_id: 'elevenlabs-CFzl8WvPQ92EKMBs2hpS',
@@ -52,7 +52,7 @@ const agent = await client.agents.create({
 });
 
 // List calls
-const calls = await client.calls.list();
+const { calls } = await client.calls.list();
 
 // Check balance
 const balance = await client.wallet.balance();
@@ -85,9 +85,10 @@ await client.calls.recording('call_id')
 ```javascript
 await client.knowledgeBases.list()
 await client.knowledgeBases.get('kb_id')
-await client.knowledgeBases.create({ name: 'FAQ', description: '...' })
+await client.knowledgeBases.create({ name: 'FAQ', texts: [{ title: 'Returns', text: '...' }] })
 await client.knowledgeBases.delete('kb_id')
-await client.knowledgeBases.addSource('kb_id', { type: 'text', content: '...' })
+await client.knowledgeBases.addSource('kb_id', { type: 'text', name: 'Intro', content: '...' })
+await client.knowledgeBases.addSource('kb_id', { type: 'url', content: 'https://example.com/faq' })
 await client.knowledgeBases.query('kb_id', 'question', topK)
 ```
 
@@ -150,7 +151,7 @@ await client.payments.checkout(50.0, 'USD')
 await client.payments.history(limit)
 await client.payments.savedCards()
 await client.payments.autoCharge()
-await client.payments.updateAutoCharge({ enabled: true, threshold: 5, charge_amount: 50 })
+await client.payments.updateAutoCharge({ enabled: true, threshold_usd: 5, charge_amount_usd: 50 })
 ```
 
 ### API Keys
@@ -179,7 +180,7 @@ await client.users.tenantMembers(page, perPage)
 await client.widgets.list()
 await client.widgets.get('widget_id')
 await client.widgets.create({ agent_id, name: 'Support' })
-await client.widgets.update('widget_id', { welcome_message: 'Hi!' })
+await client.widgets.update('widget_id', { greeting_message: 'Hi!' })
 await client.widgets.delete('widget_id')
 await client.widgets.chat('widget_id', 'Hello, I need help')
 ```
@@ -202,6 +203,23 @@ const session = await startVoiceSession({ url: s.url, token: s.token, Room })
 // mic is on, the agent is talking. session.stop() to end.
 ```
 
+### Interpreters
+```javascript
+const it = await client.interpreters.create({ name: 'Supplier calls', source_language: 'en', target_language: 'zh' })
+await client.interpreters.enableWeb(it.interpreter_id)      // browser link, no app needed
+await client.interpreters.webStatus(it.interpreter_id)
+await client.interpreters.list() / get(id) / update(id, data) / delete(id) / calls()
+```
+
+### Numbers & SMS
+```javascript
+await client.numbers.allowedCountries()
+await client.numbers.search({ country: 'US', area_code: '415' })
+await client.numbers.checkout({ phone_number: '+1415...', agent_id })   // paid
+await client.sms.send('+1415...', 'Hello', '+1650...')
+await client.sms.list({ direction: 'inbound' })
+```
+
 ### Chats
 ```javascript
 await client.chats.list(limit)
@@ -222,7 +240,7 @@ await client.events.report('payment_failed', 'Paddle rejected the webhook', {
   meta: { payment_id: 'pay_abc', provider: 'paddle' },
 });
 
-// Admin-only — query archived (error+) events:
+// Admin-only, requires a dashboard session token (JWT) — sk_ API keys get 401:
 await client.events.query({ severity: 'error', hours: 24 });
 ```
 
@@ -237,6 +255,7 @@ try {
   const agent = await client.agents.get('invalid_id');
 } catch (err) {
   console.error(err.message); // "Call2Me API Error 404: Agent not found"
+  console.error(err.status, err.detail); // 404 'Agent not found' (validation errors: array)
 }
 ```
 
@@ -250,6 +269,16 @@ try {
 - **Support**: [support@call2me.app](mailto:support@call2me.app)
 
 ## Changelog
+
+### 1.5.2 (2026-10-14)
+- ESM support: `import { Call2Me } from 'call2me-sdk'` now works (was `ERR_PACKAGE_PATH_NOT_EXPORTED`).
+- Fixed `knowledgeBases.create` / `addSource` (sent field names the API rejected with 422).
+- Fixed `payments.updateAutoCharge` (threshold and amount were silently ignored).
+- Errors expose `err.status` and `err.detail`; validation errors are no longer `[object Object]`.
+- TypeScript: added `interpreters`, `numbers`, `sms`, `calls.create`, `wallet.analytics/pricing`, `apiKeys.usage`; types for `call2me-sdk/voice`.
+
+### 1.5.0 – 1.5.1 (2026-10-05)
+- Added `interpreters`, `numbers`, `sms`, `extension` resources and `calls.create` (outbound calls).
 
 ### 1.4.0 (2026-07-02)
 - Added `voiceSessions.create(agentId, context)` — open a headless AI voice session with an agent.

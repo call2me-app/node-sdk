@@ -45,7 +45,12 @@ class Call2Me {
     const res = await fetch(url, opts);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(`Call2Me API Error ${res.status}: ${err.detail || JSON.stringify(err)}`);
+      const detail = err.detail ?? err;
+      const msg = typeof detail === 'string' ? detail : JSON.stringify(detail);
+      const e = new Error(`Call2Me API Error ${res.status}: ${msg}`);
+      e.status = res.status;
+      e.detail = detail;
+      throw e;
     }
     if (res.status === 204) return true;
     return res.json();
@@ -90,9 +95,23 @@ class KnowledgeBaseResource {
   constructor(c) { this.c = c; }
   list() { return this.c._request('GET', '/v1/knowledge-base'); }
   get(id) { return this.c._request('GET', `/v1/knowledge-base/${id}`); }
-  create(data) { return this.c._request('POST', '/v1/knowledge-base', data); }
+  // API alanı `knowledge_base_name`; eski `{ name }` biçimi de kabul edilir.
+  create(data) {
+    const { name, description, texts, urls, ...rest } = data || {};
+    const body = { knowledge_base_name: rest.knowledge_base_name || name, ...rest };
+    if (texts) body.knowledge_base_texts = texts;
+    if (urls) body.knowledge_base_urls = urls;
+    return this.c._request('POST', '/v1/knowledge-base', body);
+  }
   delete(id) { return this.c._request('DELETE', `/v1/knowledge-base/${id}`); }
-  addSource(id, data) { return this.c._request('POST', `/v1/knowledge-base/${id}/add-sources`, data); }
+  // { type: 'text', content, name } | { type: 'url', content } | ham API gövdesi
+  addSource(id, data) {
+    const { type, content, name, ...rest } = data || {};
+    let body = rest;
+    if (type === 'url') body = { knowledge_base_urls: [content] };
+    else if (content != null) body = { knowledge_base_texts: [{ title: name || 'Untitled', text: content }] };
+    return this.c._request('POST', `/v1/knowledge-base/${id}/add-sources`, body);
+  }
   query(id, query, topK = 5) { return this.c._request('POST', `/v1/knowledge-base/${id}/query`, { query, top_k: topK }); }
 }
 
@@ -324,7 +343,14 @@ class PaymentsResource {
   history(limit = 50) { return this.c._request('GET', '/v1/payments/history', null, { limit }); }
   savedCards() { return this.c._request('GET', '/v1/payments/methods'); }
   autoCharge() { return this.c._request('GET', '/v1/payments/auto-charge'); }
-  updateAutoCharge(data) { return this.c._request('PUT', '/v1/payments/auto-charge', data); }
+  // API alanları threshold_usd / charge_amount_usd; eski adlar eşlenir.
+  updateAutoCharge(data) {
+    const { threshold, charge_amount, ...rest } = data || {};
+    const body = { ...rest };
+    if (threshold != null && body.threshold_usd == null) body.threshold_usd = threshold;
+    if (charge_amount != null && body.charge_amount_usd == null) body.charge_amount_usd = charge_amount;
+    return this.c._request('PUT', '/v1/payments/auto-charge', body);
+  }
 }
 
 // ── Events ──

@@ -38,13 +38,16 @@ declare module "call2me-sdk" {
     calls: {
       list(limit?: number, offset?: number, agentId?: string | null): Promise<any>;
       get(id: string): Promise<any>;
+      create(data: Record<string, unknown>): Promise<any>;
       end(id: string): Promise<any>;
       recording(id: string): Promise<any>;
     };
     knowledgeBases: any;
     wallet: {
       balance(): Promise<any>;
-      transactions(limit?: number): Promise<any>;
+      transactions(limit?: number, offset?: number): Promise<any>;
+      analytics(days?: number): Promise<any>;
+      pricing(): Promise<any>;
     };
     campaigns: any;
     schedules: any;
@@ -55,12 +58,38 @@ declare module "call2me-sdk" {
       create(data: Record<string, unknown>): Promise<any>;
       revoke(id: string): Promise<any>;
       delete(id: string): Promise<any>;
+      usage(id: string): Promise<any>;
     };
     users: any;
     widgets: any;
     voices: any;
     chats: any;
     payments: any;
+    interpreters: {
+      list(limit?: number, offset?: number): Promise<any>;
+      get(id: string): Promise<any>;
+      create(data: Record<string, unknown>): Promise<any>;
+      update(id: string, data: Record<string, unknown>): Promise<any>;
+      delete(id: string): Promise<any>;
+      calls(limit?: number, offset?: number): Promise<any>;
+      call(id: string, targetNumber: string, initiatorNumber?: string): Promise<any>;
+      enableWeb(id: string, enabled?: boolean, requiresPasscode?: boolean): Promise<any>;
+      endWeb(id: string): Promise<any>;
+      webStatus(id: string): Promise<any>;
+      createPasscode(id: string): Promise<any>;
+    };
+    numbers: {
+      allowedCountries(): Promise<any>;
+      search(params: Record<string, unknown>): Promise<any>;
+      purchase(data: Record<string, unknown>): Promise<any>;
+      checkout(data: Record<string, unknown>): Promise<any>;
+      release(number: string): Promise<any>;
+    };
+    sms: {
+      send(to: string, text: string, from?: string): Promise<any>;
+      list(params?: Record<string, unknown>): Promise<any>;
+    };
+    extension: any;
     events: {
       report(type: string, message: string, options?: EventOptions): Promise<any>;
       query(q?: EventQuery): Promise<any>;
